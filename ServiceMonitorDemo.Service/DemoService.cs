@@ -87,7 +87,7 @@ namespace ServiceMonitorDemo.Service
                     }
                 });
 
-                _callbackChannels?.RemoveAll(x => badChannels.Contains(x));
+                _callbackChannels.RemoveAll(x => badChannels.Contains(x));
             }
         }
 
