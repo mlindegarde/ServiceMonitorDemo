@@ -20,10 +20,7 @@ namespace ServiceMonitorDemo.Service
         #region IDemoServiceChannel Implementation
         public void Connect()
         {
-            if(_demoSvc == null)
-                return;
-
-            _demoSvc.CallbackChannel = OperationContext.Current.GetCallbackChannel<IDemoServiceCallbackChannel>();
+            _demoSvc?.AddCallbackChannel(OperationContext.Current.GetCallbackChannel<IDemoServiceCallbackChannel>());
         }
         #endregion
 

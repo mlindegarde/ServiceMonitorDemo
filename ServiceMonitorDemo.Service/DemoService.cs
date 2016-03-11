@@ -1,4 +1,5 @@
-﻿using System.ServiceModel;
+﻿using System.Collections.Generic;
+using System.ServiceModel;
 using System.Threading;
 using System.Threading.Tasks;
 using ServiceMonitorDemo.Model;
@@ -9,13 +10,29 @@ namespace ServiceMonitorDemo.Service
     public class DemoService
     {
         #region Member Variables
+        private readonly List<IDemoServiceCallbackChannel> _callbackChannels;
+
         private CancellationTokenSource _tokenSource;
         private CancellationToken _token;
         #endregion
 
-        #region Properties
-        public IDemoServiceCallbackChannel CallbackChannel {get; set;}
+        #region Constructor
+        public DemoService()
+        {
+            _callbackChannels = new List<IDemoServiceCallbackChannel>();
+        }
         #endregion
+
+        public void AddCallbackChannel(IDemoServiceCallbackChannel channel)
+        {
+            if(_callbackChannels == null)
+                return;
+
+            lock(_callbackChannels)
+            {
+                _callbackChannels.Add(channel);
+            }
+        }
 
         public void Start()
         {
@@ -28,18 +45,8 @@ namespace ServiceMonitorDemo.Service
             {
                 while(!_token.IsCancellationRequested)
                 {
-                    try
-                    {
-                        CallbackChannel?.UpdateStatus(new StatusUpdate
-                        {
-                            Message = "Up and runing"
-                        });
-                        await Task.Delay(1000, _token);
-                    }
-                    catch(CommunicationObjectAbortedException)
-                    {
-                        CallbackChannel = null;
-                    }
+                    UpdateCallbackChannels();
+                    await Task.Delay(1000, _token);
                 }
             }, _token);
         }
@@ -52,7 +59,48 @@ namespace ServiceMonitorDemo.Service
             _tokenSource.Cancel();
             _tokenSource.Dispose();
 
-            CallbackChannel?.ServiceShutdown();
+            ShutdownCallbackChannels();
         }
+
+        #region Utility Methods
+        private void UpdateCallbackChannels()
+        {
+            if(_callbackChannels == null)
+                return;
+
+            List<IDemoServiceCallbackChannel> badChannels = new List<IDemoServiceCallbackChannel>();
+
+            lock(_callbackChannels)
+            {
+                _callbackChannels.ForEach(c =>
+                {
+                    try
+                    {
+                        c.UpdateStatus(new StatusUpdate
+                        {
+                            Message = "Up and runing"
+                        });
+                    }
+                    catch(CommunicationObjectAbortedException)
+                    {
+                        badChannels.Add(c);
+                    }
+                });
+
+                _callbackChannels?.RemoveAll(x => badChannels.Contains(x));
+            }
+        }
+
+        private void ShutdownCallbackChannels()
+        {
+            if(_callbackChannels == null)
+                return;
+
+            lock(_callbackChannels)
+            {
+                _callbackChannels.ForEach(c => c.ServiceShutdown());
+            }
+        }
+        #endregion
     }
 }
