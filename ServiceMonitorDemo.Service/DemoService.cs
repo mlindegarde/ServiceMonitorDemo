@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,35 +8,72 @@ using ServiceMonitorDemo.Service.Contracts;
 
 namespace ServiceMonitorDemo.Service
 {
-    public class DemoService
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
+    public class DemoService : IDemoServiceChannel
     {
+        #region Constants
+        public const string Uri = "net.pipe://localhost/service-monitor-demo";
+        #endregion
+
         #region Member Variables
+        private static DemoService _instance;
+
         private readonly List<IDemoServiceCallbackChannel> _callbackChannels;
 
+        private ServiceHost _host;
         private CancellationTokenSource _tokenSource;
         private CancellationToken _token;
         #endregion
 
+        #region Properties
+        public bool IsRunningAsService {get; set;}
+        #endregion
+
         #region Constructor
-        public DemoService()
+        public static DemoService GetInstance()
+        {
+            return _instance ?? (_instance = new DemoService());
+        }
+
+        private DemoService()
         {
             _callbackChannels = new List<IDemoServiceCallbackChannel>();
         }
         #endregion
 
-        public void AddCallbackChannel(IDemoServiceCallbackChannel channel)
+        #region IDemoServiceChannel Implementation
+        public void Connect()
         {
-            if(_callbackChannels == null)
-                return;
-
-            lock(_callbackChannels)
-            {
-                _callbackChannels.Add(channel);
-            }
+            AddCallbackChannel(OperationContext.Current.GetCallbackChannel<IDemoServiceCallbackChannel>());
         }
+
+        public bool DisplayMessage(string message)
+        {
+            if(!IsRunningAsService)
+            {
+                Console.WriteLine(message);
+                return true;
+            }
+
+            return false;
+        }
+        #endregion
 
         public void Start()
         {
+            // wcf
+            _host = new ServiceHost(this);
+
+            NetNamedPipeBinding binding = new NetNamedPipeBinding();
+            binding.ReceiveTimeout = TimeSpan.MaxValue;
+
+            _host.AddServiceEndpoint(typeof(IDemoServiceChannel),
+                binding,
+                new Uri(Uri));
+
+            _host.Open();
+
+            // service
             if(_tokenSource == null)
                 _tokenSource = new CancellationTokenSource();
 
@@ -53,16 +91,31 @@ namespace ServiceMonitorDemo.Service
 
         public void Stop()
         {
+            // service
             if(_tokenSource == null)
                 return;
 
             _tokenSource.Cancel();
             _tokenSource.Dispose();
 
+            // wcf
             ShutdownCallbackChannels();
+            
+            _host.Close();
         }
 
         #region Utility Methods
+        private void AddCallbackChannel(IDemoServiceCallbackChannel channel)
+        {
+            if(_callbackChannels == null)
+                return;
+
+            lock(_callbackChannels)
+            {
+                _callbackChannels.Add(channel);
+            }
+        }
+
         private void UpdateCallbackChannels()
         {
             if(_callbackChannels == null)
@@ -78,7 +131,8 @@ namespace ServiceMonitorDemo.Service
                     {
                         c.UpdateStatus(new StatusUpdate
                         {
-                            Message = "Up and runing"
+                            Message = "Up",
+                            ConnectedClients = _callbackChannels.Count
                         });
                     }
                     catch(CommunicationObjectAbortedException)

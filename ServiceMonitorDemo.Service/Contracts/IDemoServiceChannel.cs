@@ -7,5 +7,8 @@ namespace ServiceMonitorDemo.Service.Contracts
     {
         [OperationContract(IsOneWay = true)]
         void Connect();
+
+        [OperationContract(IsOneWay = false)]
+        bool DisplayMessage(string message);
     }
 }

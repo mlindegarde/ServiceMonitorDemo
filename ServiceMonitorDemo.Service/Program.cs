@@ -1,77 +1,31 @@
-﻿using System;
-using System.ServiceModel;
-using ServiceMonitorDemo.Service.Contracts;
-using Topshelf;
+﻿using Topshelf;
+using Topshelf.Hosts;
 
 namespace ServiceMonitorDemo.Service
 {
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
-    class Program : IDemoServiceChannel
+    class Program
     {
-        #region Constants
-        public const string Uri = "net.pipe://localhost/service-monitor-demo";
-        #endregion
-
-        #region Member Variables
-        private ServiceHost _host;
-        private DemoService _demoSvc;
-        #endregion
-
-        #region IDemoServiceChannel Implementation
-        public void Connect()
-        {
-            _demoSvc?.AddCallbackChannel(OperationContext.Current.GetCallbackChannel<IDemoServiceCallbackChannel>());
-        }
-        #endregion
-
-        public void StartWcf()
-        {
-            _host = new ServiceHost(this);
-
-            NetNamedPipeBinding binding = new NetNamedPipeBinding();
-            binding.ReceiveTimeout = TimeSpan.MaxValue;
-
-            _host.AddServiceEndpoint(typeof(IDemoServiceChannel),
-                binding,
-                new Uri(Uri));
-
-            _host.Open();
-        }
-
-        public void StopWcf()
-        {
-            _host.Close();
-        }
-
         public void Run()
         {
-            HostFactory.Run(x =>
+            Host host = HostFactory.New(x =>
             {
                 x.Service<DemoService>(s =>
                 {
-                    _demoSvc = new DemoService();
+                    s.ConstructUsing(_ => DemoService.GetInstance());
 
-                    s.ConstructUsing(_ => _demoSvc);
-
-                    s.WhenStarted(svc =>
-                    {
-                        StartWcf();
-                        svc.Start();
-                    });
-
-                    s.WhenStopped(svc =>
-                    {
-                        svc.Stop();
-                        StopWcf();
-                    });
+                    s.WhenStarted(svc => svc.Start());
+                    s.WhenStopped(svc => svc.Stop());
                 });
 
                 x.RunAsLocalSystem();
                 
-                x.SetDescription("Demo Service");
-                x.SetDisplayName("Demo Service");
-                x.SetServiceName("DemoService");
+                x.SetDescription("WCF Service Monitor Demo - Service");
+                x.SetDisplayName("WCF Service Monitor Demo - Service");
+                x.SetServiceName("WCFServiceMonitorDemoService");
             });
+
+            DemoService.GetInstance().IsRunningAsService = !(host is ConsoleRunHost);
+            host.Run();
         }
 
         static void Main()

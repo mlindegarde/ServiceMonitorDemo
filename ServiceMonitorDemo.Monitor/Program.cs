@@ -20,7 +20,7 @@ namespace ServiceMonitorDemo.Monitor
         #region IDemoServiceCallbackChannel Implementation
         public void UpdateStatus(StatusUpdate status)
         {
-            Console.WriteLine(status.Message);
+            Console.WriteLine($"Status: {status.Message} | Connections: {status.ConnectedClients}");
         }
 
         public void ServiceShutdown()
@@ -57,12 +57,33 @@ namespace ServiceMonitorDemo.Monitor
 
         public void Run()
         {
+            Random rand = new Random();
+            int id = rand.Next(1000);
+
             while(true)
             {
-                if(!_isConnected)
-                    Connect();
+                try
+                {
+                    if(_isConnected)
+                    {
+                        if(rand.Next(100) < 5)
+                        {
+                            string not = _channel.DisplayMessage($"Hello from {id}")
+                                ? String.Empty 
+                                : "not ";
 
-                Thread.Sleep(100);
+                            Console.WriteLine($"Mesage {not}displayed.");
+                        }
+                    }
+                    else
+                        Connect();
+
+                    Thread.Sleep(100);
+                }
+                catch(CommunicationObjectFaultedException)
+                {
+                    _isConnected = false;
+                }
             }
         }
 
