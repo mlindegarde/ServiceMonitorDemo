@@ -77,7 +77,7 @@ namespace ServiceMonitorDemo.Service
             });
         }
 
-        static void Main(string[] args)
+        static void Main()
         {
             Program demoSvc = new Program();
 

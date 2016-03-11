@@ -14,7 +14,7 @@ namespace ServiceMonitorDemo.Monitor
 
         #region Member Variables
         private IDemoServiceChannel _channel;
-        private bool _isConnected = false;
+        private bool _isConnected;
         #endregion
 
         #region IDemoServiceCallbackChannel Implementation
@@ -66,7 +66,7 @@ namespace ServiceMonitorDemo.Monitor
             }
         }
 
-        static void Main(string[] args)
+        static void Main()
         {
             Program demoApp = new Program();
 

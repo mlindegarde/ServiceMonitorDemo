@@ -1,5 +1,4 @@
-﻿using System;
-using System.ServiceModel;
+﻿using System.ServiceModel;
 using System.Threading;
 using System.Threading.Tasks;
 using ServiceMonitorDemo.Model;
